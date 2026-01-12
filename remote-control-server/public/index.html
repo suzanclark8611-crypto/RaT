@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Control Panel</title>
+    <style>
+        body { background: #1a1a1a; color: white; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; }
+        canvas { border: 3px solid #333; background: #000; max-width: 90vw; height: auto; cursor: crosshair; }
+        .status { margin: 10px; color: #0f0; }
+    </style>
+</head>
+<body>
+    <h2>Android Remote Control</h2>
+    <div id="stat" class="status">Waiting for phone...</div>
+    <canvas id="screen" width="1080" height="2400"></canvas>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        const canvas = document.getElementById('screen');
+        const ctx = canvas.getContext('2d');
+
+        socket.emit("identify", "controller");
+
+        socket.on("display_frame", (data) => {
+            document.getElementById('stat').innerText = "Device Online";
+            const img = new Image();
+            img.onload = () => ctx.drawImage(img, 0, 0);
+            img.src = "data:image/jpeg;base64," + data;
+        });
+
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left) / rect.width;
+            const y = (e.clientY - rect.top) / rect.height;
+            socket.emit("send_command", { action: "tap", x: x, y: y });
+        });
+    </script>
+</body>
+</html>
