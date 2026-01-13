@@ -36,4 +36,53 @@
         });
     </script>
 </body>
+
+<script>
+    const socket = io();
+    const canvas = document.getElementById('screen');
+    const ctx = canvas.getContext('2d');
+
+    let isDragging = false;
+    let startX, startY;
+
+    socket.emit("identify", "controller");
+
+    // Display incoming frames
+    socket.on("display_frame", (data) => {
+        const img = new Image();
+        img.onload = () => ctx.drawImage(img, 0, 0);
+        img.src = "data:image/jpeg;base64," + data;
+    });
+
+    // Handle Mouse Down (Start)
+    canvas.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        const rect = canvas.getBoundingClientRect();
+        startX = (e.clientX - rect.left) / rect.width;
+        startY = (e.clientY - rect.top) / rect.height;
+    });
+
+    // Handle Mouse Up (End)
+    canvas.addEventListener('mouseup', (e) => {
+        isDragging = false;
+        const rect = canvas.getBoundingClientRect();
+        const endX = (e.clientX - rect.left) / rect.width;
+        const endY = (e.clientY - rect.top) / rect.height;
+
+        // Check if it was a tiny movement (Tap) or a long movement (Swipe)
+        const distance = Math.sqrt(Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2));
+
+        if (distance < 0.02) {
+            // It's a TAP
+            socket.emit("send_command", { action: "tap", x: startX, y: startY });
+        } else {
+            // It's a SWIPE
+            socket.emit("send_command", { 
+                action: "swipe", 
+                x1: startX, y1: startY, 
+                x2: endX, y2: endY 
+            });
+        }
+    });
+</script>
 </html>
