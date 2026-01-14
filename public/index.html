@@ -226,4 +226,46 @@
         canvas.addEventListener('mousedown', (e) => {
             const rect = canvas.getBoundingClientRect();
             startX = (e.clientX - rect.left) / rect.width;
-            startY = (e.clientY
+            startY = (e.clientY - rect.top) / rect.height;
+            isDown = true;
+        });
+
+        canvas.addEventListener('mouseup', (e) => {
+            if (!isDown) return;
+            const rect = canvas.getBoundingClientRect();
+            const endX = (e.clientX - rect.left) / rect.width;
+            const endY = (e.clientY - rect.top) / rect.height;
+            isDown = false;
+
+            const dist = Math.sqrt(Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2));
+
+            if (dist < 0.025) {
+                // Tap command
+                socket.emit("send_command", { action: "tap", x: startX, y: startY });
+            } else {
+                // Swipe command
+                socket.emit("send_command", { action: "swipe", x1: startX, y1: startY, x2: endX, y2: endY });
+            }
+        });
+
+        // Navigation Key Relays
+        function sendKey(val) {
+            socket.emit("send_command", { action: "key", value: val });
+        }
+
+        // Keyboard Relay
+        kbInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && kbInput.value.trim() !== '') {
+                socket.emit("send_command", { action: "type", text: kbInput.value });
+                kbInput.value = '';
+            }
+        });
+
+        socket.on("disconnect", () => {
+            statusDiv.innerText = "● Disconnected";
+            statusDiv.className = "status-badge offline";
+            sessionText.innerText = "Offline";
+        });
+    </script>
+</body>
+</html>
