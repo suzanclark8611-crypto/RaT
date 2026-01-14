@@ -10,7 +10,7 @@ app.use(express.static('public'));
 
 const io = new Server(server, {
   cors: { origin: "*" },
-  maxHttpBufferSize: 1e7 
+  maxHttpBufferSize: 1e7 // Supports high-res screen frames
 });
 
 const PORT = process.env.PORT || 3000;
@@ -24,12 +24,14 @@ io.on("connection", (socket) => {
     console.log(`Device identified as: ${type}`);
   });
 
+  // Relay screen from phone to dashboard
   socket.on("screen_frame", (data) => {
     socket.to("controllers").emit("display_frame", data);
   });
 
+  // Relay mouse click from dashboard to phone
   socket.on("send_command", (data) => {
-    io.to("phones").emit("execute_command", data);
+    socket.to("phones").emit("execute_command", data);
   });
 });
 
