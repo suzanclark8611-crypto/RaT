@@ -1,20 +1,11 @@
 {
   "name": "remote-control-server",
   "version": "1.0.0",
-  "description": "Android Remote Control Server with Slate Blur UI",
+  "description": "Android Remote Control Relay",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node index.js"
   },
-  "keywords": [
-    "android",
-    "remote-control",
-    "socket.io",
-    "rat"
-  ],
-  "author": "",
-  "license": "ISC",
   "dependencies": {
     "express": "^4.18.2",
     "socket.io": "^4.7.2"
